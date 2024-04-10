@@ -9,10 +9,12 @@ filtered_files = [ x for x in all_files if x.split('_')[1] in all_categories ]
 
 create_country_name = lambda x: x.split('_')[0]
 create_emotion_name = lambda x: x.split('_')[1]
+create_gender_name = lambda x: x.split('_')[2]
 
 def create_general_statistics(df):
     df['language'] = df['file_name'].apply(create_country_name)
     df['emotion'] = df['file_name'].apply(create_emotion_name)
+    df['gender'] = df['file_name'].apply(create_gender_name)
     
     return df
 
