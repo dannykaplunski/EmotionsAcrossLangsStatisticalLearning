@@ -7,10 +7,12 @@ import torch
 import scipy.signal
 from scipy.io import wavfile
 
+# Get all files and filter them by categories
 all_files = os.listdir('wav-files/')
 all_categories = ['ANG', 'HAP', 'SAD']
 filtered_files = [ x for x in all_files if x.split('_')[1] in all_categories ]
 
+# Create categories
 create_country_name = lambda x: x.split('_')[0]
 create_emotion_name = lambda x: x.split('_')[1]
 create_gender_name = lambda x: x.split('_')[2]
@@ -21,6 +23,7 @@ def create_general_statistics(df):
     df['gender'] = df['file_name'].apply(create_gender_name)
     return df
 
+# get the time to peak of audio data in seconds, precentage and from in seconds from the end
 def get_time_to_peak_amplitude(audio_data, sr, duration):
     peak_amplitude_index = np.argmax(np.abs(audio_data))
     time_of_peak = peak_amplitude_index / sr
@@ -28,33 +31,40 @@ def get_time_to_peak_amplitude(audio_data, sr, duration):
     time_from_peak_to_end = duration - time_of_peak
     return time_of_peak, time_of_peak_precentage, time_from_peak_to_end
 
+# Estimate the syllabic rate of the audio data
 def estimate_syllabic_rate(audio_data, sr, duration_in_seconds):
+    # Pre-emphasize the audio data to increase the accuracy of energy estimation
     audio_preemphasized = np.append(audio_data[0], audio_data[1:] - 0.97 * audio_data[:-1])
 
-    frame_length = int(0.025 * sr)  # 25ms window
-    hop_length = int(0.010 * sr)
+    frame_length = int(0.025 * sr)  # 25ms window 
+    hop_length = int(0.010 * sr) #10ms hop length
     energy = np.array([
         np.sum(np.abs(audio_preemphasized[i:i + frame_length]**2))
         for i in range(0, len(audio_preemphasized), hop_length)
-    ])
-    
-    peaks, _ = scipy.signal.find_peaks(energy, height=np.mean(energy), distance=frame_length)
+    ]) # Energy is calculated as the sum of squares of the amplitudes in the frame.
+    peaks, _ = scipy.signal.find_peaks(energy, height=np.mean(energy), distance=frame_length) # Find number of peaks in the energy signal it is the number of syllables
     num_syllables = len(peaks)
-
-    syllabic_rate = num_syllables / duration_in_seconds
+    syllabic_rate = num_syllables / duration_in_seconds # change to rate
     return syllabic_rate
 
+# The spectral centroid is a measure used in digital signal processing to characterize a spectrum. It indicates the center of mass of the spectrum and is often associated with the perceived brightness of a sound.
+# librosa.feature.spectral_centroid returns array so we need to calculate the mean, median, min, max, std, iqr, mean diff, std diff, skew and kurtosis of this array
 def get_spectral_envelope(y, sr ):
     spectral_centroids = librosa.feature.spectral_centroid(y=y, sr=sr)[0] 
     return np.mean(spectral_centroids), np.median(spectral_centroids), np.min(spectral_centroids), np.max(spectral_centroids), np.std(spectral_centroids), np.percentile(spectral_centroids, 75) - np.percentile(spectral_centroids, 25), np.mean(np.diff(spectral_centroids)), np.std(np.diff(spectral_centroids)), scipy.stats.skew(spectral_centroids), scipy.stats.kurtosis(spectral_centroids)
 
-
+#Mel-frequency cepstral coefficients MFCCs - effectively represent the short-term power spectrum of sound, and are used in automatic speech and speaker recognition.
+# Mel Filterbank: The audio signal is first converted to the Mel scale, which approximates the human auditory system's response more closely than the linearly-spaced frequency bands used in the Fourier transform.
+# Logarithmic Scaling: Taking the logarithm of the powers at each of the mel frequencies, this operation mimics the human ear's perception of loudness.
+# Discrete Cosine Transform (DCT): This is applied to the log mel powers, which decorrelates the energy distribution across filter bands and compresses the most relevant frequency components into fewer coefficients.
+# for every mfcc (13) we calculate the mean and std of it in the audio data
 def extract_mfcc_features(y, sr, n_mfcc=13):
     mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc)
     mfccs_mean = mfccs.mean(axis=1)
     mfccs_std   = mfccs.std(axis=1)
     return mfccs_mean, mfccs_std
 
+#spliting the audio data into n parts
 def split_audio(y, num_parts):
     total_samples = len(y)
     part_length = total_samples // num_parts
@@ -62,6 +72,7 @@ def split_audio(y, num_parts):
     if total_samples % num_parts != 0:
         parts[-1] = np.concatenate((parts[-1], y[num_parts * part_length:]))
     return parts
+
 
 def get_mMa(clip):
     max_amp = np.max(clip)
@@ -122,7 +133,7 @@ def diffgrad(intensor):
 def get_features(file_path):
     n = 5
     df = pd.DataFrame()
-    try:
+    try: #getting "clean" audio data with triming, sample rate, and bit depth
         audio_data, sr = librosa.load(file_path)
         audio_data, index =  librosa.effects.trim(audio_data, top_db=30)
         sample_rate, new = wavfile.read(file_path)
@@ -131,31 +142,44 @@ def get_features(file_path):
         raise TypeError('Error reading file')
     df['sample_rate'] = [sr]
     df['bit_depth'] = [bit_depth]
+
     num_samples = len(audio_data)
     duration = num_samples / sr
     df['duration'] = [duration]
+
     syllabic_rate = estimate_syllabic_rate(audio_data, sr, duration )
     df['syllabic_rate'] = syllabic_rate
 
-    zcr = librosa.feature.zero_crossing_rate(audio_data)
+    #getting the mean and std of zero crossing rate of all the data
+    zcr = librosa.feature.zero_crossing_rate(audio_data) 
     zcr_mean = np.mean(zcr)
     zcr_std = np.std(zcr)
     df[['zcr_mean', 'zcr_std', 'zcr_frequncy']] = [zcr_mean, zcr_std, len(zcr) / duration]
+
+    #get_spectral_envelope values
     mean_spectral_envelope, median_spectral_envelope, min_spectral_envelope, max_spectral_envelope, std_spectral_envelope, iqr_spectral_envelope, mean_diff_spectral_envelope, std_diff_spectral_envelope, skew_spectral_envelope, kurtosis_spectral_envelope = get_spectral_envelope(audio_data, sr )
     df[['mean_spectral_envelope', 'median_spectral_envelope', 'min_spectral_envelope', 'max_spectral_envelope', 'std_spectral_envelope', 'iqr_spectral_envelope', 'mean_diff_spectral_envelopeæ', 'std_diff_spectral_envelope', 'skew_spectral_envelope', 'kurtosis_spectral_envelope']] =   [mean_spectral_envelope, median_spectral_envelope, min_spectral_envelope, max_spectral_envelope, std_spectral_envelope, iqr_spectral_envelope, mean_diff_spectral_envelope, std_diff_spectral_envelope, skew_spectral_envelope, kurtosis_spectral_envelope]
+    
+    # get_time_to_peak_amplitude values
     time_of_peak, time_of_peak_precentage, time_from_peak_to_end = get_time_to_peak_amplitude(audio_data, sr, duration)
     df[['time_of_peak', 'time_of_peak_precentage', 'time_from_peak_to_end']] = [time_of_peak, time_of_peak_precentage, time_from_peak_to_end]
+    
+    # extract_mfcc_features values getting all the means and stds of each mfccs
     mfccs_mean, mfccs_std = extract_mfcc_features(audio_data, sr)
     df[['mfccs_mean_' + str(x) for x in range(len(mfccs_mean))] + ['mfccs_std_' + str(x) for x in range(len(mfccs_std))]] = np.concatenate((mfccs_mean, mfccs_std))
+    
+    #split the data into n parts and get the features of each part
     splited_data = split_audio(audio_data , n)   
+
+    #get zcr features for each part
     zcr_means = [ np.mean(librosa.feature.zero_crossing_rate(x))  for x in splited_data]
     zcr_stds = [ np.std(librosa.feature.zero_crossing_rate(x))  for x in splited_data]
     zcr_frequncys = [ len(librosa.feature.zero_crossing_rate(x)) / (duration / (n))  for x in splited_data]
-    syllabic_rates = [estimate_syllabic_rate(x, sr, duration / (n)) for x in splited_data]
     df[['zcr_means_' + str(x) for x in range(len(splited_data))]] = zcr_means
     df[['zcr_stds_' + str(x) for x in range(len(splited_data))]] = zcr_stds
     df[['zcr_frequncys_' + str(x) for x in range(len(splited_data))]] = zcr_frequncys
 
+    #get the differences between the features and see how they differ from the mean
     df[['zcr_diffs_' + str(x) + '_' + str(x+1) for x in range(len(splited_data) - 1)]] = np.diff(zcr_means)
     df[['mean_zcr', 'mean_zcr_diff']] =    [np.mean(zcr_means), np.mean(np.diff(zcr_means))]
     df[['zcr_from_average' + str(x)  for x in range(len(splited_data) - 1)]] =  df[['zcr_means_' + str(x)  for x in range(len(splited_data) - 1)]] - list(df['mean_zcr']) * (len(splited_data) - 1)
@@ -169,11 +193,15 @@ def get_features(file_path):
     df[['zcr_frequncys_from_average' + str(x)  for x in range(len(splited_data) - 1)]] =  df[['zcr_frequncys_' + str(x)  for x in range(len(splited_data) - 1)]] - list(df['frequncys_zcr']) * (len(splited_data) - 1)
     df[['zcr_frequncys_diffs_from_average' + str(x)  + '_' + str(x+1) for x in range(len(splited_data) - 1)]] =  df[['zcr_frequncys_diffs_' + str(x)  + '_' + str(x+1) for x in range(len(splited_data) - 1)]]- list(df['frequncys_zcr_diff']) * (len(splited_data) - 1) 
 
+    #get syllabic_rates  for each part and there diffs
+    syllabic_rates = [estimate_syllabic_rate(x, sr, duration / (n)) for x in splited_data]
     df[['syllabic_rate_' + str(x) for x in range(len(splited_data))]] = syllabic_rates
     df[['syllabic_rate_diffs_' + str(x)  + '_' + str(x+1) for x in range(len(splited_data) - 1)]] = np.diff(syllabic_rates)
     df[['mean_syllabic_rate', 'mean_syllabic_rate_diff']] =    [np.mean(syllabic_rates), np.mean(np.diff(syllabic_rates))]
     df[['syllabic_rate_from_average' + str(x) for x in range(len(splited_data) - 1)]] =  df[['syllabic_rate_' + str(x)  for x in range(len(splited_data) - 1)]] - list(df['mean_syllabic_rate']) * (len(splited_data) - 1) 
     df[['syllabic_rate_diffs_from_average' + str(x) + '_' + str(x+1) for x in range(len(splited_data) - 1)]] =  df[['syllabic_rate_diffs_' + str(x)  + '_' + str(x+1) for x in range(len(splited_data) - 1)]] - list(df['mean_syllabic_rate_diff']) * (len(splited_data) - 1) 
+    
+    #get amp features
     max_amp, min_amp, mean_amp, med_amp = get_mMa(audio_data)
     df[['max_amp', 'min_amp', 'mean_amp', 'med_amp']] = [max_amp, min_amp, mean_amp, med_amp]
     #0) max signal amplitude, 1) min signal amplitude, 2) mean signal amplitude, 3) median signal amplitude
@@ -248,24 +276,7 @@ def get_features(file_path):
         for i in range(0, n - 1):  # up to 4 because we compute difference with the next section
             df[f'{col}_{i}_diff'] = df[f'{col}_{i}'] - df[f'{col}_{i+1}']
             df[f'{col}_{i}_grad'] = df[f'{col}_{i}'] / df[f'{col}_{i+1}']
-    #     segdata.append(   clipnfourier) #18 columns
-    #     #0-3: wave stats, 4-8: fourier stats, 9-11: spectrum stats, 12: norm range, 
-    #     #13-15: spectrogram stats, 16-17: normalized spectrogram, 
-    #     #18-21: wave stats norm to overall, 22-23: fourier norm to overall
-    # print(segdata)
-    # segmenttensor = torch.tensor(segdata)    
-    # #get data for changes between segments************************
-    # dg = diffgrad(segmenttensor[:,0:17]) #taking the diff of grad between data normalized to the overall would just be a linear combo of the data
-    # #make one big output for the whole file*************************
-    # #we have all of the data from the whole audio file, the data for the segments, and the data for the change between segments
-    # #we want to flatten it into a single row
-    # # wholedata = torch.tensor( nspectrostats)
-    # final_output = torch.reshape(torch.cat((segmenttensor, dg), dim=1), (1,290))[0]
-    # # final_output = torch.cat((wholedata, segmentdata), dim=0)
-    # numpy_array = final_output.cpu().numpy()
-    # df[[f"Tensor_Col_{x+1}" for x in range(len(numpy_array))]] = numpy_array
 
-    return df
 
 def df_func():
     not_ok_array = []
