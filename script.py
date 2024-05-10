@@ -52,7 +52,7 @@ def estimate_syllabic_rate(audio_data, sr, duration_in_seconds):
 def get_spectral_envelope(y, sr ):
     spectral_centroids = librosa.feature.spectral_centroid(y=y, sr=sr)[0] 
     return np.mean(spectral_centroids), np.median(spectral_centroids), np.min(spectral_centroids), np.max(spectral_centroids), np.std(spectral_centroids), np.percentile(spectral_centroids, 75) - np.percentile(spectral_centroids, 25), np.mean(np.diff(spectral_centroids)), np.std(np.diff(spectral_centroids)), scipy.stats.skew(spectral_centroids), scipy.stats.kurtosis(spectral_centroids)
-    #**** desc of returns here****
+    # mean, median, min, max, std, iqr, mean diff, std diff, skew and kurtosis of spectral_centroids
 
 #Mel-frequency cepstral coefficients MFCCs - effectively represent the short-term power spectrum of sound, and are used in automatic speech and speaker recognition.
 # Mel Filterbank: The audio signal is first converted to the Mel scale, which approximates the human auditory system's response more closely than the linearly-spaced frequency bands used in the Fourier transform.
@@ -64,17 +64,18 @@ def extract_mfcc_features(y, sr, n_mfcc=13):
     mfccs_mean = mfccs.mean(axis=1)
     mfccs_std   = mfccs.std(axis=1)
     return mfccs_mean, mfccs_std
-    #**** desc of returns here****dimensions???
+    # mfccs_mean: the mean of each mfcc (n_mfcc the number of mfccs, 
+    # mfccs_std: the std of each mfcc
 
-#splitting the audio data into n parts ****what is y?****
-def split_audio(y, num_parts):
-    total_samples = len(y)
+#splitting the audio data into n parts ****what is y?**** answer : you right, changed it to the audio_data
+def split_audio(audio_data, num_parts):
+    total_samples = len(audio_data)
     part_length = total_samples // num_parts
-    parts = [y[i * part_length:(i + 1) * part_length] for i in range(num_parts)]
+    parts = [audio_data[i * part_length:(i + 1) * part_length] for i in range(num_parts)]
     if total_samples % num_parts != 0:
-        parts[-1] = np.concatenate((parts[-1], y[num_parts * part_length:]))
+        parts[-1] = np.concatenate((parts[-1], audio_data[num_parts * part_length:]))
     return parts
-    #**** desc of returns here****
+    #audio_data array splitted to num_parts parts
 
 #Gets basic stats of the audio wave
 def get_mMa(clip):
@@ -152,20 +153,6 @@ def get_fpwr(clip, nfft, hoplen, f_res, samp_rate):
     meancent = np.mean(centroidvect)
     return maxptf, maxsumf, meancent
     #freq with max power at any point, freq with max overall power, spectral centroid
-
-#Gets differences and gradients between clip segment data ****do we still need this since you did it differently with the dataframe?****
-def diffgrad(intensor):
-    cols = intensor.shape[1]
-    rows = intensor.shape[0]
-    zerost = torch.zeros(1, cols)
-    lastt = torch.cat((intensor, zerost), dim=0)
-    nextt = torch.cat((zerost, intensor), dim=0)
-    diffs = nextt-lastt
-    grads = nextt/lastt #****need to replace nans with 0s ****
-    #remove the last line since it doesn't have meaning
-    tensoroutput = torch.cat((diffs[0:rows], grads[0:rows]), dim=1)
-    return tensoroutput
-    #first half of tensor is the raw difference between segments. second half of the tensor is the % difference between segments
 
 def get_features(file_path):
     n = 5
@@ -316,7 +303,7 @@ def get_features(file_path):
             df[f'{col}_{i}_grad'] = df[f'{col}_{i}'] / df[f'{col}_{i+1}']
     #****need to tell it what to do when dividing by 0****
 
-#****comments????****
+# creates the df, if you want to do that you need to import this function 
 def df_func():
     not_ok_array = []
     df = pd.DataFrame()
@@ -335,8 +322,9 @@ def df_func():
             break
     df = create_general_statistics(df)
     return df, not_ok_array
+#returns the completed dataframe and the files that got an unexpected error
 
-#****comments????****
+#for debbuging, if you need to see what happens with a specific file, if it gives an exception or just to see its results you import it and get the file
 def specific_df_func(name):
     new_df = pd.DataFrame()
     new_df = get_features("wav-files/" + name)
