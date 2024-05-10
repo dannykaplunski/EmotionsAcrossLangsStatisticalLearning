@@ -258,7 +258,9 @@ def get_features(file_path):
     
     #get chroma data
     chroma = librosa.feature.chroma_stft(y=audio_data, sr=sr, hop_length=hoplwhole, n_fft=nfft)
-    #can give 1 or 2 columns. need to either max or avg them, not sure which makes sense yet
+    chroma = np.mean(chroma, axis=1) #in case it gives 2 columns
+    #can give multiple columns, so mean them.
+    df[['chroma01', 'chroma02', 'chroma03', 'chroma04', 'chroma05', 'chroma06', 'chroma07', 'chroma08', 'chroma09', 'chroma10', 'chroma11', 'chroma12']]= chroma[0:12]
     
     #get data for the different segments of the file-----------------------
     #Makes a setup vector for segmenting the audio file into subclips
@@ -286,6 +288,9 @@ def get_features(file_path):
         cliprangef0 = bwfourier_short/maxpf_short #single value
         maxptf_short, maxsumf_short, meancent_short = get_fpwr(shortclip, nfft, hopl, fres, sr) #3 columns
         #add spectral normalization: maxptf/meancent, maxsumf/meancent
+        #get chroma data
+        chroma = librosa.feature.chroma_stft(y=shortclip, sr=sr, hop_length=hopl, n_fft=nfft)
+        chroma = np.mean(chroma, axis=1) #in case it gives 2 columns
         #Outputs are all lists. Combine into 1 long row list and append as new row.
         df[['max_amp_short_' + str(i), 'min_amp_short_' + str(i), 'mean_amp_short_' + str(i), 'med_amp_short_' + str(i)]] = [max_amp_short, min_amp_short, mean_amp_short, med_amp_short]
         df[['magmax_short_' + str(i), 'maxpf_short_' + str(i), 'maxf_items_short_' + str(i), 'minf_items_short_' + str(i), 'bwfourier_short_' + str(i)]] = [magmax_short, maxpf_short, maxf_items_short, minf_items_short, bwfourier_short]
@@ -294,7 +299,8 @@ def get_features(file_path):
         df[['maxptf_short/meancent_short_' + str(i), 'maxsumf_short/meancent_short_' + str(i)]] = [maxptf_short/meancent_short, maxsumf_short/meancent_short]
         df[['n1_short_' + str(i), 'n2_short_' + str(i), 'n3_short_' + str(i), 'n4_short_' + str(i)]] = [n1, n2, n3, n4]
         df[['maxpf_short/maxpf_short_' + str(i) , 'maxf_items_short/maxf_items_short_' + str(i)]] = [maxpf_short/maxpf , maxf_items_short/maxf_items]
-    columns = ['max_amp_short', 'min_amp_short', 'mean_amp_short', 'med_amp_short', 'magmax_short', 'maxpf_short', 'maxf_items_short', 'minf_items_short', 'bwfourier_short', 'bw_short', 'specroll_short', 'f0_short', 'cliprangef0_short', 'maxptf_short', 'maxsumf_short', 'meancent_short', 'maxptf_short/meancent_short', 'maxsumf_short/meancent_short', 'n1_short', 'n2_short', 'n3_short', 'n4_short', 'maxpf_short/maxpf_short', 'maxf_items_short/maxf_items_short']
+        df[['chroma01' + str(i) , 'chroma02' + str(i), 'chroma03' + str(i), 'chroma04' + str(i), 'chroma05' + str(i), 'chroma06' + str(i), 'chroma07' + str(i), 'chroma08' + str(i), 'chroma09' + str(i), 'chroma10' + str(i), 'chroma11' + str(i), 'chroma12' + str(i)]] = chroma[0:12]
+    columns = ['max_amp_short', 'min_amp_short', 'mean_amp_short', 'med_amp_short', 'magmax_short', 'maxpf_short', 'maxf_items_short', 'minf_items_short', 'bwfourier_short', 'bw_short', 'specroll_short', 'f0_short', 'cliprangef0_short', 'maxptf_short', 'maxsumf_short', 'meancent_short', 'maxptf_short/meancent_short', 'maxsumf_short/meancent_short', 'n1_short', 'n2_short', 'n3_short', 'n4_short', 'maxpf_short/maxpf_short', 'maxf_items_short/maxf_items_short', 'chroma01', 'chroma02', 'chroma03', 'chroma04', 'chroma05', 'chroma06', 'chroma07', 'chroma08', 'chroma09', 'chroma10', 'chroma11', 'chroma12']
 
     # Compute differences
     for col in columns:
@@ -330,28 +336,3 @@ def specific_df_func(name):
     new_df = get_features("wav-files/" + name)
     new_df['file_name'] = [name]
     return new_df
-
-#'URD_ANG_M_(. URDU-Dataset Angry SM4_F15_A067.wav).wav'
-#Traceback (most recent call last):
-#   File "<stdin>", line 1, in <module>
-#   File "/Users/danny/learnings/EmotionsAcrossLangsStatisticalLearning/script.py", line 287, in specific_df_func
-#     new_df = get_features("wav-files/" + name)
-#   File "/Users/danny/learnings/EmotionsAcrossLangsStatisticalLearning/script.py", line 202, in get_features
-#     maxptf, maxsumf, meancent = get_fpwr(audio_data, nfft, hoplwhole, fres, sr)
-#   File "/Users/danny/learnings/EmotionsAcrossLangsStatisticalLearning/script.py", line 103, in get_fpwr
-#     maxptf=f_bins[int(overallindex[0])] 
-
-# 'URD_ANG_M_(. URDU-Dataset Angry SM1_F1_A01.wav).wav'
-# Traceback (most recent call last):
-#   File "<stdin>", line 1, in <module>
-#   File "/Users/danny/learnings/EmotionsAcrossLangsStatisticalLearning/script.py", line 287, in specific_df_func
-#     new_df = get_features("wav-files/" + name)
-#   File "/Users/danny/learnings/EmotionsAcrossLangsStatisticalLearning/script.py", line 194, in get_features
-#     bw, specroll, f0 = get_spec(audio_data, hoplwhole, sr, nfft, maxf)
-#   File "/Users/danny/learnings/EmotionsAcrossLangsStatisticalLearning/script.py", line 92, in get_spec
-#     f0 = np.nanmean(librosa.pyin(y=clip, fmin = 60, fmax = maxf, sr=samp_rate)[0])
-#   File "/Users/danny/Library/Python/3.9/lib/python/site-packages/librosa/core/pitch.py", line 779, in pyin
-#     __check_yin_params(
-#   File "/Users/danny/Library/Python/3.9/lib/python/site-packages/librosa/core/pitch.py", line 957, in __check_yin_params
-#     raise ParameterError(f"fmin={fmin:.3f} must be less than fmax={fmax:.3f}")
-# librosa.util.exceptions.ParameterError: fmin=60.000 must be less than fmax=0.000
