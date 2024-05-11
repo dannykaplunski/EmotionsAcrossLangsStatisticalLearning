@@ -106,7 +106,7 @@ def get_fourier(clip, samp_rate):
     #maximum relevant frequency
     maxf = max(relfs).numpy() 
     #define min f as lowest f with 1/3 of the peak (may often be 0)
-    minf = min(relfs).numpy()
+    minf = = min(relfs[relfs.nonzero()]).numpy() #excludes 0
     #the BW of the magnitudes is max-min
     bwfourier = maxf-minf
     return magmax, maxpf, maxf.item(), minf.item(), bwfourier
