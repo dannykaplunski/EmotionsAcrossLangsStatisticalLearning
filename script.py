@@ -257,7 +257,7 @@ def get_features(file_path):
     rangef0 = minf_items/maxpf
     df['rangef0'] = [rangef0]
     #get spectrogram stats
-    maxptf, maxsumf, meancent = get_fpwr(audio_data, nfft, hoplwhole, fres, sr)
+    maxptf, maxsumf, meancent = get_fpwr(audio_data, nfft, int(hoplwhole/2), fres, sr)
     df[['maxptf', 'maxsumf', 'meancent']] = [maxptf, maxsumf, meancent]
     # 0) freq with max power at any point, 1) freq with max overall power, 2) spectral centroid
     #and normalize them
@@ -297,7 +297,7 @@ def get_features(file_path):
         #add spectral normalization: maxptf/meancent, maxsumf/meancent
         #get chroma data
         chroma = librosa.feature.chroma_stft(y=shortclip, sr=sr, hop_length=hopl, n_fft=nfft)
-        chroma = np.mean(chroma, axis=1) #in case it gives 2 columns
+        chroma_short = np.mean(chroma, axis=1) #in case it gives 2 columns
         #Outputs are all lists. Combine into 1 long row list and append as new row.
         df[['max_amp_short_' + str(i), 'min_amp_short_' + str(i), 'mean_amp_short_' + str(i), 'med_amp_short_' + str(i)]] = [max_amp_short, min_amp_short, mean_amp_short, med_amp_short]
         df[['magmax_short_' + str(i), 'maxpf_short_' + str(i), 'maxf_items_short_' + str(i), 'minf_items_short_' + str(i), 'bwfourier_short_' + str(i)]] = [magmax_short, maxpf_short, maxf_items_short, minf_items_short, bwfourier_short]
@@ -306,15 +306,15 @@ def get_features(file_path):
         df[['maxptf_short/meancent_short_' + str(i), 'maxsumf_short/meancent_short_' + str(i)]] = [maxptf_short/meancent_short, maxsumf_short/meancent_short]
         df[['n1_short_' + str(i), 'n2_short_' + str(i), 'n3_short_' + str(i), 'n4_short_' + str(i)]] = [n1, n2, n3, n4]
         df[['maxpf_short/maxpf_short_' + str(i) , 'maxf_items_short/maxf_items_short_' + str(i)]] = [maxpf_short/maxpf , maxf_items_short/maxf_items]
-        df[['chroma01_' + str(i) , 'chroma02_' + str(i), 'chroma03_' + str(i), 'chroma04_' + str(i), 'chroma05_' + str(i), 'chroma06_' + str(i), 'chroma07_' + str(i), 'chroma08_' + str(i), 'chroma09_' + str(i), 'chroma10_' + str(i), 'chroma11_' + str(i), 'chroma12_' + str(i)]] = chroma[0:12]
-    columns = ['max_amp_short', 'min_amp_short', 'mean_amp_short', 'med_amp_short', 'magmax_short', 'maxpf_short', 'maxf_items_short', 'minf_items_short', 'bwfourier_short', 'bw_short', 'specroll_short', 'f0_short', 'cliprangef0_short', 'maxptf_short', 'maxsumf_short', 'meancent_short', 'maxptf_short/meancent_short', 'maxsumf_short/meancent_short', 'n1_short', 'n2_short', 'n3_short', 'n4_short', 'maxpf_short/maxpf_short', 'maxf_items_short/maxf_items_short', 'chroma01', 'chroma02', 'chroma03', 'chroma04', 'chroma05', 'chroma06', 'chroma07', 'chroma08', 'chroma09', 'chroma10', 'chroma11', 'chroma12']
+        df[['chroma01_short_' + str(i) , 'chroma02_short_' + str(i), 'chroma03_short_' + str(i), 'chroma04_short_' + str(i), 'chroma05_short_' + str(i), 'chroma06_short_' + str(i), 'chroma07_short_' + str(i), 'chroma08_short_' + str(i), 'chroma09_short_' + str(i), 'chroma10_short_' + str(i), 'chroma11_short_' + str(i), 'chroma12_short_' + str(i)]] = chroma_short[0:12]
+    columns = ['max_amp_short', 'min_amp_short', 'mean_amp_short', 'med_amp_short', 'magmax_short', 'maxpf_short', 'maxf_items_short', 'minf_items_short', 'bwfourier_short', 'bw_short', 'specroll_short', 'f0_short', 'cliprangef0_short', 'maxptf_short', 'maxsumf_short', 'meancent_short', 'maxptf_short/meancent_short', 'maxsumf_short/meancent_short', 'n1_short', 'n2_short', 'n3_short', 'n4_short', 'maxpf_short/maxpf_short', 'maxf_items_short/maxf_items_short', 'chroma01_short', 'chroma02_short', 'chroma03_short', 'chroma04_short', 'chroma05_short', 'chroma06_short', 'chroma07_short', 'chroma08_short', 'chroma09_short', 'chroma10_short', 'chroma11_short', 'chroma12_short']
 
-    # Compute differences
+ # Compute differences
     for col in columns:
         for i in range(0, n - 1):  # up to 4 because we compute difference with the next section
-            df[f'{col}_{i}_diff'] = df[f'{col}_{i}'] - df[f'{col}_{i+1}']
-            df[f'{col}_{i}_grad'] = df[f'{col}_{i}'] / df[f'{col}_{i+1}']
-    #****need to tell it what to do when dividing by 0****
+            df[f'{col}_{i}_diff'] = df[f'{col}_{i+1}']- df[f'{col}_{i}'] #corrected order to new-old
+            df[f'{col}_{i}_grad'] = df[f'{col}_{i}'] / df[f'{col}_{i+1}'].where(df[f'{col}_{i+1}'] != 0, other=0) #corrected order to new/old
+
     return df
 # creates the df, if you want to do that you need to import this function 
 def df_func():
