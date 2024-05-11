@@ -10,7 +10,7 @@ from scipy.io import wavfile
 # Get all files and filter them by categories
 all_files = os.listdir('wav-files/')
 all_categories = ['ANG', 'HAP', 'SAD']
-filtered_files = [ x for x in all_files if x.split('_')[1] in all_categories ]
+filtered_files = [ x for x in all_files if 'deleted' not in x and x.split('_')[1] in all_categories ]
 
 # Create categories
 create_country_name = lambda x: x.split('_')[0]
@@ -83,6 +83,8 @@ def get_mMa(clip):
     min_amp = np.min(clip)
     mean_amp = np.mean(clip) 
     med_amp = np.median(clip)
+    if med_amp == 0:
+        med_amp = mean_amp
     return max_amp, min_amp, mean_amp, med_amp 
     #max signal amplitude, min signal amplitude, mean signal amplitude, median signal amplitude
 
@@ -100,16 +102,20 @@ def get_fourier(clip, samp_rate):
     fmaxindex = np.where(magspectrum == magmax)
     #get the corresponding frequency of maximum power at any point during the clip. If there are 2 points, pick one.
     maxpf = frequencies[int(np.max(fmaxindex[0]))] 
+    if maxpf == 0:
+        maxpf = 1
     #define max f as highest f with 1/3 of the peak frequency
     isrelmax = torch.tensor(magspectrum > magmax/3).to(torch.float)
     relfs = torch.tensor(frequencies)*isrelmax #frequencies over 1/3 max mult by 1, others zeroed out
     #maximum relevant frequency
     maxf = max(relfs).numpy() 
     #define min f as lowest f with 1/3 of the peak (may often be 0)
-    minf = = min(relfs[relfs.nonzero()]).numpy() #excludes 0
+    minf = min(relfs[relfs.nonzero()]).numpy() #excludes 0
     #the BW of the magnitudes is max-min
     bwfourier = maxf-minf
-    return magmax, maxpf, maxf.item(), minf.item(), bwfourier
+    if bwfourier[0] == 0:
+        bwfourier[0] = 1
+    return magmax, maxpf, maxf.item(), minf.item(), bwfourier.item()
     #max magnitude of fourier, f for max magnitude, highest relevant f, lowest relevant f, range (max-min) relevant f
 
 #get basic spectral stats
@@ -119,11 +125,8 @@ def get_spec(clip, hoplen, samp_rate, nfft, maxf):
     #Get the spectral rolloff
     specroll = np.max(librosa.feature.spectral_rolloff(y= clip, sr=samp_rate, n_fft=nfft, hop_length=hoplen, roll_percent=0.85)[0])#sometimes gives 2 items in vector, one can be 0
     #get fundamental frequency
-    try:
-        f0 = np.nanmean(librosa.pyin(y=clip, fmin = 60, fmax = maxf, sr=samp_rate)[0])
-    except RuntimeWarning:
-    #sometimes it doesn't give a fundamental frequency and thinks it's nothing
-        f0 = 0
+    f0 = np.nanmean(librosa.pyin(y=clip, fmin = 10, fmax = maxf, sr=samp_rate)[0])
+    f0 = 1 if np.isnan(f0) else f0
     return bw, specroll, f0
     #spect energy BW, spectral rolloff 85% energy, fundamental freq (f0)
 
@@ -141,6 +144,8 @@ def get_fpwr(clip, nfft, hoplen, f_res, samp_rate):
     overallindex = np.where(findb == overallmaxdb)
     #get the corresponding frequency for that row
     maxptf=f_bins[int(overallindex[0])] #frequency of maximum power at any point during the clip
+    if maxptf == None or maxptf == 0:
+        maxptf = 1
     #sum up the energy for all time periods for each row
     rowsums = np.sum(fourier, axis=1)
     #get the max energy value
@@ -149,6 +154,8 @@ def get_fpwr(clip, nfft, hoplen, f_res, samp_rate):
     sumindex = np.where(rowsums == rowmax)
     #get the corresponding frequency for that row
     maxsumf=f_bins[int(sumindex[0])] #frequency of maximum power throughout the clip
+    if maxsumf == 0:
+        maxsumf = 1
     centroidvect = librosa.feature.spectral_centroid(y=clip, sr=samp_rate)
     meancent = np.mean(centroidvect)
     return maxptf, maxsumf, meancent
@@ -231,7 +238,7 @@ def get_features(file_path):
     #0) max signal amplitude, 1) min signal amplitude, 2) mean signal amplitude, 3) median signal amplitude
     #get fourier stats
     magmax, maxpf, maxf_items, minf_items, bwfourier = get_fourier(audio_data, sr)
-    df[['magmax', 'maxpf', 'maxf_items', 'minf_items', 'bwfourier']] = [magmax, maxpf, maxf_items, minf_items, bwfourier]
+    df[['magmax', 'maxpf', 'maxf_items', 'minf_items', 'bwfourier']] = magmax, maxpf, maxf_items, minf_items, bwfourier
     #0) max magnitude of fourier, 1) f for max magnitude, 2) highest relevant f, 3) lowest relevant f, 4) range (max-min) relevant f
     #setupfor spectral features:
     nfft = round(512*sr/22050) #512 recommended for voice at 22050 Hz
@@ -299,7 +306,7 @@ def get_features(file_path):
         df[['maxptf_short/meancent_short_' + str(i), 'maxsumf_short/meancent_short_' + str(i)]] = [maxptf_short/meancent_short, maxsumf_short/meancent_short]
         df[['n1_short_' + str(i), 'n2_short_' + str(i), 'n3_short_' + str(i), 'n4_short_' + str(i)]] = [n1, n2, n3, n4]
         df[['maxpf_short/maxpf_short_' + str(i) , 'maxf_items_short/maxf_items_short_' + str(i)]] = [maxpf_short/maxpf , maxf_items_short/maxf_items]
-        df[['chroma01' + str(i) , 'chroma02' + str(i), 'chroma03' + str(i), 'chroma04' + str(i), 'chroma05' + str(i), 'chroma06' + str(i), 'chroma07' + str(i), 'chroma08' + str(i), 'chroma09' + str(i), 'chroma10' + str(i), 'chroma11' + str(i), 'chroma12' + str(i)]] = chroma[0:12]
+        df[['chroma01_' + str(i) , 'chroma02_' + str(i), 'chroma03_' + str(i), 'chroma04_' + str(i), 'chroma05_' + str(i), 'chroma06_' + str(i), 'chroma07_' + str(i), 'chroma08_' + str(i), 'chroma09_' + str(i), 'chroma10_' + str(i), 'chroma11_' + str(i), 'chroma12_' + str(i)]] = chroma[0:12]
     columns = ['max_amp_short', 'min_amp_short', 'mean_amp_short', 'med_amp_short', 'magmax_short', 'maxpf_short', 'maxf_items_short', 'minf_items_short', 'bwfourier_short', 'bw_short', 'specroll_short', 'f0_short', 'cliprangef0_short', 'maxptf_short', 'maxsumf_short', 'meancent_short', 'maxptf_short/meancent_short', 'maxsumf_short/meancent_short', 'n1_short', 'n2_short', 'n3_short', 'n4_short', 'maxpf_short/maxpf_short', 'maxf_items_short/maxf_items_short', 'chroma01', 'chroma02', 'chroma03', 'chroma04', 'chroma05', 'chroma06', 'chroma07', 'chroma08', 'chroma09', 'chroma10', 'chroma11', 'chroma12']
 
     # Compute differences
@@ -308,7 +315,7 @@ def get_features(file_path):
             df[f'{col}_{i}_diff'] = df[f'{col}_{i}'] - df[f'{col}_{i+1}']
             df[f'{col}_{i}_grad'] = df[f'{col}_{i}'] / df[f'{col}_{i+1}']
     #****need to tell it what to do when dividing by 0****
-
+    return df
 # creates the df, if you want to do that you need to import this function 
 def df_func():
     not_ok_array = []
@@ -320,12 +327,14 @@ def df_func():
             new_df['file_name'] = [file]
             df = df.append( new_df )
         except TypeError:
-            continue
+            print(file)
+            not_ok_array.append("TypeError: " + file)
         except librosa.util.exceptions.ParameterError:
-            continue
+            print(file)
+            not_ok_array.append("ParameterError: " + file)
         except:
+            print(file)
             not_ok_array.append(file)
-            break
     df = create_general_statistics(df)
     return df, not_ok_array
 #returns the completed dataframe and the files that got an unexpected error
@@ -334,5 +343,6 @@ def df_func():
 def specific_df_func(name):
     new_df = pd.DataFrame()
     new_df = get_features("wav-files/" + name)
+    return new_df
     new_df['file_name'] = [name]
     return new_df
