@@ -129,8 +129,6 @@ def get_row(file_path):
     cutoffs = [int(pps * i) for i in range(0, n)]
     cutoffs.append(int(num_samples))
     #Run all of the subroutines to get the data for the segmented audio clips
-    segdata = []
-    new_df = pd.DataFrame()
     for i in range(0, n):
         #make the shortened clip
         shortclip = audio_data[cutoffs[i]:cutoffs[i+1]]
@@ -198,8 +196,8 @@ def create_dataframe_from_test(file_path):
         #create new row from file
         df = get_row(file_path) 
         df['file_name'] = [file_path]
-        df['language'] = file_path.split('/')[1].split('_')[0]
-        df['gender'] = file_path.split('/')[1].split('_')[1]
+        df['language'] = file_path.split('/')[-1].split('_')[0]
+        df['gender'] = file_path.split('/')[-1].split('_')[1]
         return df
     except:
         raise TypeError('Error reading file')

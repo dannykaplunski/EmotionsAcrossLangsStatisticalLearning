@@ -18,7 +18,6 @@ Path("./data").mkdir(parents=True, exist_ok=True)
 print('Creating the dataframe')
 df = create_dataframe()
 df.to_csv('data/full_df.csv', index=False)
-df = pd.read_csv('data/full_df.csv')
 
 print('creating clustering algorithms')
 df, centroids_5_clusters = create_hierarchical_clustering_model(df)
