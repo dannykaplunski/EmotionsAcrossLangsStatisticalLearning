@@ -1,4 +1,4 @@
-from dataframe_utils import contains_any, create_categorical_columns, df_split, create_scaler, get_all_dummies, pred_emotion
+from dataframe_utils import create_dataframe,  create_categorical_columns, df_split, create_scaler, get_all_dummies, pred_emotion
 from clusters import create_hierarchical_clustering_model, create_kmeans_model
 from model import create_logistic_regressions, create_xgboost
 import pickle
@@ -15,9 +15,9 @@ warnings.filterwarnings("ignore", category=UserWarning)
 Path("./data").mkdir(parents=True, exist_ok=True)
 
 #create the dataframe and save it
-# print('Creating the dataframe')
-# df = create_dataframe()
-# df.to_csv('data/full_df.csv', index=False)
+print('Creating the dataframe')
+df = create_dataframe()
+df.to_csv('data/full_df.csv', index=False)
 df = pd.read_csv('data/full_df.csv')
 
 print('creating clustering algorithms')
