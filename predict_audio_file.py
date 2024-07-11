@@ -41,7 +41,7 @@ def main():
     df_scalled = df_scalled.drop(features, axis=1)
     df_scalled.to_csv('data/df_scalled.csv', index=False)
     #read xgboost model and apply
-    with open('data/logistic_model_without_clusters.pkl', 'rb') as f:
+    with open('data/xgboost_model_without_clusters.pkl', 'rb') as f:
         model = pickle.load(f)
 
     #get prediction and print it

@@ -56,9 +56,7 @@ def create_kmeans_model(df):
         kmeans = KMeans(n_clusters=k, **kmeans_kwargs)
         kmeans.fit(df_without_language)
         sse2.append(kmeans.inertia_)
-    
-    print("Length of x:", len(range(2, tryks)))
-    print("Length of y:", len(sse))
+
     #find elbow mathematically:
     kl = KneeLocator(
         range(2, tryks),  # This range should generate indices for each value in `sse`
