@@ -28,12 +28,12 @@ python predict_audio_file.py <path_to_your_audio_file>
 ```
 
 ## Model Details
-- **Logistic Regression Model**: Achieved over % accuracy in predicting sadness in audio clips.
-- **XGBoost Model**: Performed slightly better than the logistic regression model. getting % accuracy.
+- **Logistic Regression Model**: Achieved over 93% accuracy in predicting sadness in audio clips.
+- **XGBoost Model**: Performed slightly better than the logistic regression model, getting 94% accuracy.
 
 ## Contributors
 This project was made possible by the hard work and dedication of the following individuals:
-- Sara Page Podolsky
+- SaraPage Podolsky
 - Danny Kaplunski
 
 
